@@ -9,7 +9,7 @@ interface RiderControlProps {
 }
 
 export function RiderControl({ rider, onCardSelect, selectedCard }: RiderControlProps) {
-  const { game } = useGame();
+  
 
   const drawCards = async () => {
     let deck = [...rider.deck];

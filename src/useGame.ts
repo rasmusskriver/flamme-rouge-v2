@@ -61,12 +61,9 @@ export function useGame() {
         table: 'games', 
         filter: `id=eq.${game.id}` 
       }, payload => {
-        console.log('Game updated:', payload.new);
         setGame(payload.new as Game);
       })
-      .subscribe((status) => {
-        console.log('Game subscription status:', status);
-      });
+      .subscribe();
 
     const playerSub = supabase.channel(playersChannelName)
       .on('postgres_changes', { 
@@ -75,12 +72,9 @@ export function useGame() {
         table: 'players', 
         filter: `game_id=eq.${game.id}` 
       }, payload => {
-        console.log('Player added:', payload.new);
         setPlayers(curr => [...curr, payload.new as Player]);
       })
-      .subscribe((status) => {
-        console.log('Players subscription status:', status);
-      });
+      .subscribe();
 
     const riderSub = supabase.channel(ridersChannelName)
       .on('postgres_changes', { 
@@ -89,16 +83,13 @@ export function useGame() {
         table: 'riders', 
         filter: `game_id=eq.${game.id}` 
       }, payload => {
-        console.log('Rider event:', payload.eventType, payload.new);
         if (payload.eventType === 'INSERT') {
           setRiders(curr => [...curr, payload.new as Rider]);
         } else if (payload.eventType === 'UPDATE') {
           setRiders(curr => curr.map(r => r.id === payload.new.id ? payload.new as Rider : r));
         }
       })
-      .subscribe((status) => {
-        console.log('Riders subscription status:', status);
-      });
+      .subscribe();
 
     const movesSub = supabase.channel(movesChannelName)
       .on('postgres_changes', { 
@@ -108,23 +99,20 @@ export function useGame() {
         filter: `game_id=eq.${game.id}` 
       }, payload => {
         const move = payload.new as Move;
-        console.log('Move added:', move);
-        // Only add moves for the current round
         if (move.round === game.current_round) {
           setRoundMoves(curr => [...curr, move]);
         }
       })
-      .subscribe((status) => {
-        console.log('Moves subscription status:', status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('Cleaning up subscriptions for game:', game.id);
       supabase.removeChannel(gameSub);
       supabase.removeChannel(playerSub);
       supabase.removeChannel(riderSub);
       supabase.removeChannel(movesSub);
     };
+
+    
   }, [game?.id, game?.current_round]);
 
   const createGame = async () => {

@@ -1,113 +1,59 @@
-import { useState } from 'react';
+import { useGame } from './useGame';
+import { Rider } from './types';
 import { supabase } from './supabaseClient';
-import { FatigueSlider } from './FatigueSlider';
-
-// Define the Rider type again for clarity within the component
-type Rider = {
-  id: string;
-  player_id: string;
-  type: 'Sprinter' | 'Rouleur';
-  color: 'Red' | 'Black' | 'Green' | 'Blue';
-  deck: number[];
-  hand: number[] | null;
-  discard_pile: number[];
-};
 
 interface RiderControlProps {
   rider: Rider;
   onCardSelect: (riderId: string, card: number) => void;
-  selectedCard: number | undefined;
+  selectedCard: number;
 }
 
 export function RiderControl({ rider, onCardSelect, selectedCard }: RiderControlProps) {
-  const [hand, setHand] = useState<number[]>(rider.hand || []);
-  const [isLoading, setIsLoading] = useState(false);
+  const { game } = useGame();
 
   const drawCards = async () => {
-    setIsLoading(true);
-    let currentDeck = [...rider.deck];
-    let currentDiscard = [...rider.discard_pile];
+    let deck = [...rider.deck];
+    let discardPile = [...rider.discard_pile];
+    let hand = [];
 
-    if (currentDeck.length < 4) {
-      // Reshuffle discard pile into deck
-      console.log(`Reshuffling ${currentDiscard.length} cards for ${rider.color} ${rider.type}`);
-      currentDeck.push(...currentDiscard.sort(() => Math.random() - 0.5));
-      currentDiscard = [];
+    if (deck.length < 4) {
+      const shuffledDiscard = discardPile.sort(() => Math.random() - 0.5);
+      deck = [...deck, ...shuffledDiscard];
+      discardPile = [];
     }
 
-    // If still not enough cards, add fatigue cards
-    while (currentDeck.length < 4) {
-        console.log(`Adding fatigue card to ${rider.color} ${rider.type}`);
-        currentDeck.push(2); // Add a fatigue card
-    }
+    hand = deck.slice(0, 4);
+    const newDeck = deck.slice(4);
 
-    const newHand = currentDeck.slice(0, 4);
-    const remainingDeck = currentDeck.slice(4);
-
-    const { error } = await supabase
+    await supabase
       .from('riders')
-      .update({ 
-        deck: remainingDeck,
-        hand: newHand,
-        discard_pile: currentDiscard // This is now empty if a reshuffle happened
-      })
+      .update({ hand: hand, deck: newDeck, discard_pile: discardPile })
       .eq('id', rider.id);
-
-    if (error) {
-      console.error('Error drawing cards:', error);
-    } else {
-      setHand(newHand);
-    }
-    setIsLoading(false);
   };
 
-  const [isAddingFatigue, setIsAddingFatigue] = useState(false);
-
-  const addFatigueCard = async () => {
-    if (isAddingFatigue) return;
-    setIsAddingFatigue(true);
-
-    const newDiscardPile = [...rider.discard_pile, 2];
-
-    const { error } = await supabase
-      .from('riders')
-      .update({ discard_pile: newDiscardPile })
-      .eq('id', rider.id);
-
-    if (error) {
-      console.error('Error adding fatigue card:', error);
-    }
-    // The UI will update automatically via the subscription in App.tsx
-    setIsAddingFatigue(false);
-  };
+  if (!rider.hand || rider.hand.length === 0) {
+    return (
+      <div className="rider-control">
+        <h4>{rider.color} {rider.type}</h4>
+        <p>Deck: {rider.deck.length} | Discard: {rider.discard_pile.length}</p>
+        <button onClick={drawCards}>Draw Cards</button>
+      </div>
+    );
+  }
 
   return (
-    <div className={`rider-control ${selectedCard ? 'move-selected' : ''}`}>
-      <h4 style={{ backgroundColor: rider.color.toLowerCase(), padding: '5px', color: ['Black', 'Blue'].includes(rider.color) ? 'white' : 'black' }}>
-        {rider.color} {rider.type}
-      </h4>
-      <p>Deck: {rider.deck.length} cards | Discard: {rider.discard_pile.length} cards</p>
-
-      {hand.length === 0 ? (
-        <button onClick={drawCards} disabled={isLoading}>{isLoading ? 'Drawing...' : 'Draw 4 Cards'}</button>
-      ) : (
-        <div className="hand-selection">
-          <p>Choose a card:</p>
-          <div className="card-options">
-            {hand.map((card, index) => (
-              <button 
-                key={index} 
-                className={`card ${selectedCard === card ? 'selected' : ''}`}
-                onClick={() => onCardSelect(rider.id, card)}
-              >
-                {card}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="fatigue-zone">
-        <FatigueSlider onConfirm={addFatigueCard} label=">> Add Fatigue" color={rider.color.toLowerCase()} />
+    <div className="rider-control">
+      <h4>{rider.color} {rider.type}</h4>
+      <div className="hand">
+        {rider.hand.map((card) => (
+          <button 
+            key={card} 
+            onClick={() => onCardSelect(rider.id, card)}
+            className={selectedCard === card ? 'selected' : ''}
+          >
+            {card}
+          </button>
+        ))}
       </div>
     </div>
   );

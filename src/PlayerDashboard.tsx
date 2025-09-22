@@ -1,28 +1,15 @@
 import { useState } from 'react';
+import { useGame } from './useGame';
 import { supabase } from './supabaseClient';
 import { RiderControl } from './RiderControl';
+import { Rider } from './types';
 
-// Define the Rider type again for clarity
-type Rider = {
-  id: string;
-  player_id: string;
-  type: 'Sprinter' | 'Rouleur';
-  color: 'Red' | 'Black' | 'Green' | 'Blue';
-  deck: number[];
-  hand: number[] | null;
-  discard_pile: number[];
-};
-
-interface PlayerDashboardProps {
-  gameId: string;
-  player: { id: string; name: string };
-  myRiders: Rider[];
-  round: number;
-}
-
-export function PlayerDashboard({ gameId, player, myRiders, round }: PlayerDashboardProps) {
+export function PlayerDashboard() {
+  const { game, player, riders, roundMoves } = useGame();
   const [selectedMoves, setSelectedMoves] = useState<{ [riderId: string]: number }>({});
   const [isConfirmed, setIsConfirmed] = useState(false);
+
+  const myRiders = riders.filter(r => r.player_id === player?.id);
 
   const handleCardSelect = (riderId: string, card: number) => {
     setSelectedMoves((current) => ({
@@ -37,14 +24,13 @@ export function PlayerDashboard({ gameId, player, myRiders, round }: PlayerDashb
     if (!allMovesSelected) return;
 
     const movesToInsert = myRiders.map(rider => ({
-      game_id: gameId,
-      player_id: player.id,
+      game_id: game!.id,
+      player_id: player!.id,
       rider_id: rider.id,
       selected_card: selectedMoves[rider.id],
-      round: round,
+      round: game!.current_round,
     }));
 
-    // 1. Insert all moves into the database
     const { error } = await supabase.from('player_moves').insert(movesToInsert);
 
     if (error) {
@@ -52,7 +38,6 @@ export function PlayerDashboard({ gameId, player, myRiders, round }: PlayerDashb
       return;
     }
 
-    // 2. Update each rider's deck state (move hand to discard)
     const riderUpdates = myRiders.map(rider => {
         const playedCard = selectedMoves[rider.id];
         const remainingHand = rider.hand?.filter(c => c !== playedCard) || [];
@@ -75,7 +60,7 @@ export function PlayerDashboard({ gameId, player, myRiders, round }: PlayerDashb
   if (isConfirmed) {
     return (
         <div className="player-dashboard">
-            <h3>Your moves for round {round} are locked in!</h3>
+            <h3>Your moves for round {game?.current_round} are locked in!</h3>
             <ul>
                 {myRiders.map(rider => (
                     <li key={rider.id}>{rider.color} {rider.type} played: <strong>{selectedMoves[rider.id]}</strong></li>
@@ -88,7 +73,7 @@ export function PlayerDashboard({ gameId, player, myRiders, round }: PlayerDashb
 
   return (
     <div className="player-dashboard">
-      <h3>Round {round} - Plan Your Moves</h3>
+      <h3>Round {game?.current_round} - Plan Your Moves</h3>
       <div className="riders-container">
         {myRiders.map((rider) => (
           <RiderControl 

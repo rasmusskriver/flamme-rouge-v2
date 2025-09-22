@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useGame } from './useGame';
 import { supabase } from './supabaseClient';
 
 const COLORS = ['Red', 'Black', 'Green', 'Blue'];
@@ -10,15 +11,11 @@ const shuffle = (array: number[]) => {
   return array.sort(() => Math.random() - 0.5);
 };
 
-interface TeamSelectionProps {
-  gameId: string;
-  player: { id: string; name: string };
-}
-
-export function TeamSelection({ gameId, player }: TeamSelectionProps) {
+export function TeamSelection() {
+  const { game, player, players } = useGame();
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [error, setError] = useState('');
-  const isPlayer1 = player.name === 'Player 1';
+  const isPlayer1 = player?.name === 'Player 1';
 
   const handleSelectColor = (color: string) => {
     if (!isPlayer1) return; // Only Player 1 can select
@@ -37,15 +34,9 @@ export function TeamSelection({ gameId, player }: TeamSelectionProps) {
     }
     setError('');
 
-    // Get the other player
-    const { data: otherPlayer, error: playerError } = await supabase
-      .from('players')
-      .select('id')
-      .eq('game_id', gameId)
-      .neq('id', player.id)
-      .single();
+    const otherPlayer = players.find(p => p.id !== player?.id);
 
-    if (playerError || !otherPlayer) {
+    if (!otherPlayer) {
       console.error('Could not find the other player.');
       return;
     }
@@ -56,13 +47,13 @@ export function TeamSelection({ gameId, player }: TeamSelectionProps) {
     const ridersToCreate = [
       // Player 1's riders
       ...player1Colors.flatMap((color) => [
-        { game_id: gameId, player_id: player.id, color, rider_type: 'Sprinter', deck: shuffle([...SPRINTER_DECK]), discard_pile: [] },
-        { game_id: gameId, player_id: player.id, color, rider_type: 'Rouleur', deck: shuffle([...ROULEUR_DECK]), discard_pile: [] },
+        { game_id: game!.id, player_id: player!.id, color, rider_type: 'Sprinter', deck: shuffle([...SPRINTER_DECK]), discard_pile: [] },
+        { game_id: game!.id, player_id: player!.id, color, rider_type: 'Rouleur', deck: shuffle([...ROULEUR_DECK]), discard_pile: [] },
       ]),
       // Player 2's riders
       ...player2Colors.flatMap((color) => [
-        { game_id: gameId, player_id: otherPlayer.id, color, rider_type: 'Sprinter', deck: shuffle([...SPRINTER_DECK]), discard_pile: [] },
-        { game_id: gameId, player_id: otherPlayer.id, color, rider_type: 'Rouleur', deck: shuffle([...ROULEUR_DECK]), discard_pile: [] },
+        { game_id: game!.id, player_id: otherPlayer.id, color, rider_type: 'Sprinter', deck: shuffle([...SPRINTER_DECK]), discard_pile: [] },
+        { game_id: game!.id, player_id: otherPlayer.id, color, rider_type: 'Rouleur', deck: shuffle([...ROULEUR_DECK]), discard_pile: [] },
       ]),
     ];
 
@@ -73,7 +64,7 @@ export function TeamSelection({ gameId, player }: TeamSelectionProps) {
       setError('Failed to create teams. Please try again.');
     } else {
       // Optionally, update game state to 'active'
-      await supabase.from('games').update({ game_state: 'active' }).eq('id', gameId);
+      await supabase.from('games').update({ game_state: 'active' }).eq('id', game!.id);
     }
   };
 

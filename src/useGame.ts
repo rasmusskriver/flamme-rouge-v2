@@ -129,9 +129,29 @@ export function useGame() {
 
   const createGame = async () => {
     const gameCode = generateGameCode();
-    const { data: g } = await supabase.from('games').insert({ game_code: gameCode }).select('*').single();
-    const { data: p } = await supabase.from('players').insert({ game_id: g.id, name: 'Player 1' }).select('id, name').single();
-    if (g && p) handleLogin(g, p);
+    const { data: g, error: gameError } = await supabase
+      .from('games')
+      .insert({ game_code: gameCode, game_state: 'setup', current_round: 1 })
+      .select('*')
+      .single();
+
+    if (gameError || !g) {
+      console.error('Failed to create game:', gameError);
+      return;
+    }
+
+    const { data: p, error: playerError } = await supabase
+      .from('players')
+      .insert({ game_id: g.id, name: 'Player 1' })
+      .select('id, name')
+      .single();
+
+    if (playerError || !p) {
+      console.error('Failed to create player:', playerError);
+      return;
+    }
+
+    handleLogin(g, p);
   };
 
   const joinGame = async (joinGameCode: string) => {

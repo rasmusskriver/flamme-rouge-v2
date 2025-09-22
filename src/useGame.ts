@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import { Game, Player, Rider, Move } from './types';
+import { generateGameCode, isValidGameCode } from './gameCodeUtils';
 
 export function useGame() {
   const [game, setGame] = useState<Game | null>(null);
@@ -47,31 +48,78 @@ export function useGame() {
     };
     fetchInitialData();
 
-    const gameSub = supabase.channel(`game-${game.id}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${game.id}` }, payload => {
+    // Create unique channel names to avoid conflicts
+    const gameChannelName = `game-updates-${game.id}`;
+    const playersChannelName = `players-updates-${game.id}`;
+    const ridersChannelName = `riders-updates-${game.id}`;
+    const movesChannelName = `moves-updates-${game.id}-round-${game.current_round}`;
+
+    const gameSub = supabase.channel(gameChannelName)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'games', 
+        filter: `id=eq.${game.id}` 
+      }, payload => {
+        console.log('Game updated:', payload.new);
         setGame(payload.new as Game);
-      }).subscribe();
+      })
+      .subscribe((status) => {
+        console.log('Game subscription status:', status);
+      });
 
-    const playerSub = supabase.channel(`players-${game.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'players', filter: `game_id=eq.${game.id}` }, payload => {
+    const playerSub = supabase.channel(playersChannelName)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'players', 
+        filter: `game_id=eq.${game.id}` 
+      }, payload => {
+        console.log('Player added:', payload.new);
         setPlayers(curr => [...curr, payload.new as Player]);
-      }).subscribe();
+      })
+      .subscribe((status) => {
+        console.log('Players subscription status:', status);
+      });
 
-    const riderSub = supabase.channel(`riders-${game.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'riders', filter: `game_id=eq.${game.id}` }, payload => {
+    const riderSub = supabase.channel(ridersChannelName)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'riders', 
+        filter: `game_id=eq.${game.id}` 
+      }, payload => {
+        console.log('Rider event:', payload.eventType, payload.new);
         if (payload.eventType === 'INSERT') {
           setRiders(curr => [...curr, payload.new as Rider]);
         } else if (payload.eventType === 'UPDATE') {
           setRiders(curr => curr.map(r => r.id === payload.new.id ? payload.new as Rider : r));
         }
-      }).subscribe();
+      })
+      .subscribe((status) => {
+        console.log('Riders subscription status:', status);
+      });
 
-    const movesSub = supabase.channel(`moves-${game.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'player_moves', filter: `game_id=eq.${game.id}` }, payload => {
-        setRoundMoves(curr => [...curr, payload.new as Move]);
-      }).subscribe();
+    const movesSub = supabase.channel(movesChannelName)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'player_moves', 
+        filter: `game_id=eq.${game.id}` 
+      }, payload => {
+        const move = payload.new as Move;
+        console.log('Move added:', move);
+        // Only add moves for the current round
+        if (move.round === game.current_round) {
+          setRoundMoves(curr => [...curr, move]);
+        }
+      })
+      .subscribe((status) => {
+        console.log('Moves subscription status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up subscriptions for game:', game.id);
       supabase.removeChannel(gameSub);
       supabase.removeChannel(playerSub);
       supabase.removeChannel(riderSub);
@@ -80,20 +128,34 @@ export function useGame() {
   }, [game?.id, game?.current_round]);
 
   const createGame = async () => {
-    const { data: g } = await supabase.from('games').insert({}).select('*').single();
+    const gameCode = generateGameCode();
+    const { data: g } = await supabase.from('games').insert({ game_code: gameCode }).select('*').single();
     const { data: p } = await supabase.from('players').insert({ game_id: g.id, name: 'Player 1' }).select('id, name').single();
     if (g && p) handleLogin(g, p);
   };
 
-  const joinGame = async (joinGameId: string) => {
-    const { data: playersInGame } = await supabase.from('players').select('id').eq('game_id', joinGameId);
-    if (!playersInGame || playersInGame.length >= 2) {
-      alert('Game not found or is full.');
+  const joinGame = async (joinGameCode: string) => {
+    // Validate the game code format
+    if (!isValidGameCode(joinGameCode)) {
+      alert('Invalid game code format. Please enter a 6-character code.');
       return;
     }
-    const { data: g } = await supabase.from('games').select('*').eq('id', joinGameId).single();
-    const { data: p } = await supabase.from('players').insert({ game_id: joinGameId, name: 'Player 2' }).select('id, name').single();
-    if (g && p) handleLogin(g, p);
+
+    // Find game by game code
+    const { data: gameData } = await supabase.from('games').select('*').eq('game_code', joinGameCode).single();
+    if (!gameData) {
+      alert('Game not found. Please check the game code.');
+      return;
+    }
+
+    const { data: playersInGame } = await supabase.from('players').select('id').eq('game_id', gameData.id);
+    if (!playersInGame || playersInGame.length >= 2) {
+      alert('Game is full.');
+      return;
+    }
+    
+    const { data: p } = await supabase.from('players').insert({ game_id: gameData.id, name: 'Player 2' }).select('id, name').single();
+    if (gameData && p) handleLogin(gameData, p);
   };
 
   const startNextRound = async () => {

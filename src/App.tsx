@@ -7,11 +7,11 @@ import { Move } from './types';
 
 function App() {
   const { game, player, players, riders, roundMoves, createGame, joinGame, startNextRound } = useGame();
-  const [joinGameId, setJoinGameId] = useState('');
+  const [joinGameCode, setJoinGameCode] = useState('');
 
   const handleJoinGame = () => {
-    if (joinGameId) {
-      joinGame(joinGameId);
+    if (joinGameCode.trim()) {
+      joinGame(joinGameCode.trim().toUpperCase());
     }
   };
 
@@ -58,7 +58,14 @@ function App() {
         <button onClick={createGame}>Start New Game</button>
         <hr />
         <div>
-          <input type="text" placeholder="Enter Game ID" value={joinGameId} onChange={(e) => setJoinGameId(e.target.value)} />
+          <input 
+            type="text" 
+            placeholder="Enter Game Code (6 characters)" 
+            value={joinGameCode} 
+            onChange={(e) => setJoinGameCode(e.target.value)}
+            maxLength={6}
+            style={{ textTransform: 'uppercase' }}
+          />
           <button onClick={handleJoinGame}>Join Game</button>
         </div>
       </div>
@@ -69,7 +76,7 @@ function App() {
     <div className="App">
       <header>
         <h1>Flamme Rouge</h1>
-        <p>Game ID: <strong>{game.id}</strong> | Round: <strong>{game.current_round}</strong></p>
+        <p>Game Code: <strong>{game.game_code}</strong> | Round: <strong>{game.current_round}</strong></p>
       </header>
       {renderGameContent()}
     </div>

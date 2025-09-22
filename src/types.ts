@@ -10,6 +10,16 @@ export type Rider = {
 
 export type Player = { id: string; name: string };
 
-export type Game = { id: string; game_state: string; current_round: number };
+export type Game = { 
+  id: string; 
+  game_code: string;
+  game_state: string; 
+  current_round: number; 
+};
 
-export type Move = { player_id: string; rider_id: string; selected_card: number };
+export type Move = { 
+  player_id: string; 
+  rider_id: string; 
+  selected_card: number; 
+  round: number; 
+};

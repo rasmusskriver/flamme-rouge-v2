@@ -14,7 +14,21 @@ export function Game() {
       return acc;
   }, {} as Record<string, Move[]>);
 
-  const allPlayersMoved = players.length === 2 && players.every(p => movesByPlayer[p.id]?.length === 2);
+  const allPlayersMoved = players.length === 2 && players.every(p => {
+    const playerRiders = riders.filter(r => r.player_id === p.id);
+    const playerMoves = movesByPlayer[p.id] || [];
+    return playerMoves.length === playerRiders.length;
+  });
+
+  // Debug logging
+  console.log('Game.tsx Debug:', {
+    playersLength: players.length,
+    roundMovesLength: roundMoves.length,
+    ridersPerPlayer: players.map(p => ({ playerId: p.id, riderCount: riders.filter(r => r.player_id === p.id).length })),
+    movesByPlayer: Object.fromEntries(Object.entries(movesByPlayer).map(([playerId, moves]) => [playerId, moves.length])),
+    allPlayersMoved,
+    currentRound: game?.current_round
+  });
 
   // Pre-game: Team Selection or Waiting
   if (riders.length === 0) {

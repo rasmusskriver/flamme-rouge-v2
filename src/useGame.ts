@@ -110,7 +110,7 @@ export function useGame() {
         event: 'INSERT', // INSERT is sufficient for moves
         schema: 'public',
         table: 'player_moves',
-        filter: `game_id=eq.${game.id}`
+        filter: `game_id=eq.${game.id},round=eq.${game.current_round}`
       }, async () => {
         // Refetch moves for the current round
         if (game) { // Add a guard to ensure game is not null

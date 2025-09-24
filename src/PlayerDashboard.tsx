@@ -93,11 +93,12 @@ export function PlayerDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 auto-rows-fr">
         {myRiders.map((rider) => (
           <RiderControl 
-            key={rider.id} 
-            rider={rider} 
-            onCardSelect={handleCardSelect} 
+            key={rider.id}
+            rider={rider}
+            onCardSelect={handleCardSelect}
             selectedCard={selectedMoves[rider.id]}
             drawCards={drawCards}
+            className="h-[450px]"
           />
         ))}
       </div>

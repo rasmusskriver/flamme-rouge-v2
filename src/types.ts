@@ -1,7 +1,7 @@
 export type Rider = {
   id: string;
   player_id: string;
-  type: 'Sprinter' | 'Rouleur';
+  rider_type: 'Sprinter' | 'Rouleur';
   color: string;
   deck: number[];
   hand: number[] | null;

@@ -107,14 +107,16 @@ export function useGame() {
 
     const movesSub = supabase.channel(movesChannelName)
       .on('postgres_changes', {
-        event: 'INSERT', // INSERT is sufficient for moves
+        event: '*', // Listen to all events for moves to ensure updates
         schema: 'public',
         table: 'player_moves',
         filter: `game_id=eq.${game.id},round=eq.${game.current_round}`
       }, async () => {
         // Refetch moves for the current round
         if (game) { // Add a guard to ensure game is not null
+          console.log('Moves subscription triggered, refetching moves for round', game.current_round);
           const { data: movesData } = await supabase.from('player_moves').select<any, Move>('*').eq('game_id', game.id).eq('round', game.current_round);
+          console.log('Fetched moves:', movesData);
           setRoundMoves(movesData || []);
         }
       })

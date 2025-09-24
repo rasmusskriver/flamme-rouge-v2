@@ -1,4 +1,5 @@
 import { useGame } from './useGame';
+import { PlayerMoveSummary } from './PlayerMoveSummary';
 import { TeamSelection } from './TeamSelection';
 import { PlayerDashboard } from './PlayerDashboard';
 import { Move } from './types';
@@ -42,38 +43,29 @@ export function Game() {
     );
   }
 
-  // End of Round: Show Results
-  if (allPlayersMoved) {
+  // Når spilleren har valgt kort for alle sine ryttere, vis kun egne valg og evt. fortsæt-knap
+  const playerRiders = riders.filter(r => r.player_id === player.id);
+  const playerMoves = movesByPlayer[player.id] || [];
+  const playerHasMovedAll = playerMoves.length === playerRiders.length;
+
+  // Hvis spilleren har valgt, men ikke alle har valgt: vis venteskærm
+  if (playerHasMovedAll && !allPlayersMoved) {
     return (
-      <div className="mt-4 text-center">
-        <h3 className="text-3xl font-bold mb-6 text-slate-200">Results for Round {game.current_round}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {players.map(p => (
-            <div key={p.id} className="bg-slate-700 rounded-lg p-4">
-              <h4 className="text-xl font-bold mb-3 text-white">{p.name}'s Moves:</h4>
-              <ul className="space-y-2">
-                {movesByPlayer[p.id]?.map(m => (
-                  <li key={m.rider_id} className="flex items-center justify-center gap-2 text-lg bg-slate-600 p-2 rounded-md">
-                    <span className="font-bold">{riders.find(r => r.id === m.rider_id)?.color} Rider:</span>
-                    <span className="font-mono text-yellow-400">{m.selected_card}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-        {player.name === 'Player 1' && (
-          <div className="mt-8">
-            <button 
-              onClick={startNextRound} 
-              className="w-full max-w-xs mx-auto bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform transform hover:scale-105"
-            >
-              Start Next Round
-            </button>
-          </div>
-        )}
+      <div className="mt-12 text-center">
+        <h3 className="text-2xl font-bold mb-6 text-slate-200">Vent på de andre spillere...</h3>
+        <p className="text-lg text-slate-400">Når alle har valgt, kan du se dine valg og fortsætte.</p>
       </div>
     );
+  }
+
+  if (allPlayersMoved) {
+    return <PlayerMoveSummary 
+      moves={playerMoves} 
+      riders={playerRiders} 
+      currentRound={game.current_round}
+      isPlayer1={player.name === 'Player 1'}
+      onContinue={startNextRound}
+    />;
   }
 
   // Mid-round: Player's turn

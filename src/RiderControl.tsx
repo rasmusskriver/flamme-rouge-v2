@@ -76,22 +76,23 @@ function HandGrid({
   return (
     <>
       <p className="text-sm text-slate-400 text-center mb-2">Select a card</p>
-      <div className="grid grid-cols-4 gap-3 flex-1 h-full items-stretch">
+  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 flex-1 h-full items-stretch">
         {(rider.hand ?? []).map((card, index) => {
           const isSelected = selectedCard?.index === index;
           return (
             <button
               key={`${rider.id}-card-${index}`}
               onClick={() => onCardSelect(rider.id, card, index)}
-              className={`relative aspect-[3/4] rounded-md flex items-center justify-center text-2xl font-bold transition-all duration-150 ${
-                isSelected
+              className={`relative w-full max-w-[80px] min-w-[56px] aspect-[3/4] rounded-md flex items-center justify-center font-bold transition-all duration-150
+                text-xl sm:text-2xl
+                ${isSelected
                   ? "bg-slate-900 ring-4 ring-red-500 scale-95 shadow-lg"
-                  : "bg-slate-800 hover:bg-slate-900 hover:scale-105"
-              }`}
+                  : "bg-slate-800 hover:bg-slate-900 hover:scale-105"}
+              `}
             >
-              <span className="absolute top-1 left-2 text-base">{card}</span>
-              <span className="text-4xl">{card}</span>
-              <span className="absolute bottom-1 right-2 text-base transform rotate-180">{card}</span>
+              <span className="absolute top-1 left-2 text-xs sm:text-base">{card}</span>
+              <span className="text-2xl sm:text-4xl">{card}</span>
+              <span className="absolute bottom-1 right-2 text-xs sm:text-base transform rotate-180">{card}</span>
             </button>
           );
         })}

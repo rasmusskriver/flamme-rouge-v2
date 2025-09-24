@@ -41,9 +41,9 @@ export function useGame() {
     const fetchInitialData = async () => {
       const { data: playersData } = await supabase.from('players').select('*').eq('game_id', game.id);
       setPlayers(playersData || []);
-      const { data: ridersData } = await supabase.from('riders').select<any, Rider>('*').eq('game_id', game.id);
+      const { data: ridersData } = await supabase.from('riders').select('*').eq('game_id', game.id);
       setRiders(ridersData || []);
-      const { data: movesData } = await supabase.from('player_moves').select<any, Move>('*').eq('game_id', game.id).eq('round', game.current_round);
+      const { data: movesData } = await supabase.from('player_moves').select('*').eq('game_id', game.id).eq('round', game.current_round);
       setRoundMoves(movesData || []);
     };
     fetchInitialData();
@@ -70,7 +70,6 @@ export function useGame() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${game.id}` },
         (payload) => {
-          console.log('Player change received!', payload);
           if (payload.eventType === 'INSERT') {
             const newPlayer = payload.new as Player;
             setPlayers((currentPlayers) => {
@@ -100,7 +99,7 @@ export function useGame() {
         filter: `game_id=eq.${game.id}`
       }, async () => {
         // Refetch all riders for this game
-        const { data: ridersData } = await supabase.from('riders').select<any, Rider>('*').eq('game_id', game.id);
+        const { data: ridersData } = await supabase.from('riders').select('*').eq('game_id', game.id);
         setRiders(ridersData || []);
       })
       .subscribe();
@@ -114,9 +113,7 @@ export function useGame() {
       }, async () => {
         // Refetch moves for the current round
         if (game) { // Add a guard to ensure game is not null
-          console.log('Moves subscription triggered, refetching moves for round', game.current_round);
-          const { data: movesData } = await supabase.from('player_moves').select<any, Move>('*').eq('game_id', game.id).eq('round', game.current_round);
-          console.log('Fetched moves:', movesData);
+          const { data: movesData } = await supabase.from('player_moves').select('*').eq('game_id', game.id).eq('round', game.current_round);
           setRoundMoves(movesData || []);
         }
       })
@@ -129,7 +126,7 @@ export function useGame() {
       supabase.removeChannel(movesSub);
     };
 
-  }, [game?.id, game?.current_round]);
+  }, [game?.id, game?.current_round, game]);
 
   const createGame = async () => {
     const gameCode = generateGameCode();

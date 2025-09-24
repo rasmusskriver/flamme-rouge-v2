@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useGame } from './useGame';
 import { RiderControl } from './RiderControl';
+import type { Move } from './types';
 
 export function PlayerDashboard() {
   const { game, player, players, riders, roundMoves, drawCards, confirmMoves: confirmMovesHook } = useGame();
@@ -33,7 +34,7 @@ export function PlayerDashboard() {
     if (!acc[move.player_id]) acc[move.player_id] = [];
     acc[move.player_id].push(move);
     return acc;
-  }, {} as Record<string, any[]>);
+  }, {} as Record<string, Move[]>);
   
   const allPlayersMoved = players.length === 2 && players.every(p => {
     const playerRiders = riders.filter(r => r.player_id === p.id);

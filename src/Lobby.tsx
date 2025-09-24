@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 
 interface LobbyProps {
   createGame: () => void;
@@ -8,7 +9,7 @@ interface LobbyProps {
 export function Lobby({ createGame, joinGame }: LobbyProps) {
   const [joinGameCode, setJoinGameCode] = useState('');
 
-  const handleJoinGame = (e: React.FormEvent) => {
+  const handleJoinGame = (e: FormEvent) => {
     e.preventDefault();
     if (joinGameCode.trim()) {
       joinGame(joinGameCode.trim().toUpperCase());

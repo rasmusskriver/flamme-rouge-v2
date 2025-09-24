@@ -83,7 +83,7 @@ function HandGrid({
             <button
               key={`${rider.id}-card-${index}`}
               onClick={() => onCardSelect(rider.id, card, index)}
-              className={`relative w-full max-w-[80px] min-w-[56px] aspect-[3/4] rounded-md flex items-center justify-center font-bold transition-all duration-150
+              className={`relative w-full max-w-[120px] min-w-[80px] aspect-[3/4] rounded-md flex items-center justify-center font-bold transition-all duration-150
                 text-xl sm:text-2xl
                 ${isSelected
                   ? "bg-slate-900 ring-4 ring-red-500 scale-95 shadow-lg"

@@ -13,7 +13,16 @@ export function PlayerDashboard() {
     setIsConfirmed(false);
   }, [game?.current_round]);
 
-  const myRiders = riders.filter(r => r.player_id === player?.id);
+  const myRiders = riders
+    .filter(r => r.player_id === player?.id)
+    .sort((a, b) => {
+      // Sorter først på color, derefter på rider_type
+      if (a.color < b.color) return -1;
+      if (a.color > b.color) return 1;
+      if (a.rider_type < b.rider_type) return -1;
+      if (a.rider_type > b.rider_type) return 1;
+      return 0;
+    });
   
   // Check if current player has already confirmed moves for this round
   const myMovesForRound = roundMoves.filter(move => move.player_id === player?.id && move.round === game?.current_round);
@@ -76,7 +85,7 @@ export function PlayerDashboard() {
         <ul className="space-y-2 my-4">
           {myRiders.map(rider => (
             <li key={rider.id} className="flex items-center justify-center gap-2 text-lg bg-slate-600 p-2 rounded-md max-w-sm mx-auto">
-              <span className="font-bold">{rider.color} {rider.type}:</span>
+              <span className="font-bold">{rider.color} {rider.rider_type}:</span>
               <span className="font-mono text-yellow-400">{selectedMoves[rider.id]?.value || myMovesForRound.find(m => m.rider_id === rider.id)?.selected_card}</span>
             </li>
           ))}

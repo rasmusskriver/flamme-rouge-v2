@@ -78,19 +78,11 @@ export function PlayerDashboard() {
     if (allPlayersMoved) {
       return null; // Let Game.tsx handle the results view
     }
-    
+    // Kun venteskærm, ingen oversigt
     return (
       <div className="text-center p-8 bg-slate-700 rounded-lg">
-        <h3 className="text-2xl font-bold mb-4 text-slate-200">Your moves for round {game?.current_round} are locked in!</h3>
-        <ul className="space-y-2 my-4">
-          {myRiders.map(rider => (
-            <li key={rider.id} className="flex items-center justify-center gap-2 text-lg bg-slate-600 p-2 rounded-md max-w-sm mx-auto">
-              <span className="font-bold">{rider.color} {rider.rider_type}:</span>
-              <span className="font-mono text-yellow-400">{selectedMoves[rider.id]?.value || myMovesForRound.find(m => m.rider_id === rider.id)?.selected_card}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-4 text-slate-400 animate-pulse">Waiting for the other player to confirm their moves...</p>
+        <h3 className="text-2xl font-bold mb-4 text-slate-200">Vent på de andre spillere...</h3>
+        <p className="mt-4 text-slate-400 animate-pulse">Når alle har valgt, kan du se dine valg og fortsætte.</p>
       </div>
     );
   }

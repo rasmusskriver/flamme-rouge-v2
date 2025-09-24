@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { Game, Player, Rider, Move } from './types';
 import { generateGameCode, isValidGameCode } from './gameCodeUtils';
@@ -9,6 +9,8 @@ export function useGame() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [riders, setRiders] = useState<Rider[]>([]);
   const [roundMoves, setRoundMoves] = useState<Move[]>([]);
+
+  const channelsRef = useRef<{ gameSub: any; playerSub: any; riderSub: any; movesSub: any } | null>(null);
 
   const handleLogin = (g: Game, p: Player) => {
     setGame(g);
@@ -38,7 +40,82 @@ export function useGame() {
   useEffect(() => {
     if (!game) return;
 
-    const fetchInitialData = async () => {
+    const setupSubscriptions = async () => {
+      // Create unique channel names to avoid conflicts
+      const gameChannelName = `game-updates-${game.id}`;
+      const playersChannelName = `players-updates-${game.id}`;
+      const ridersChannelName = `riders-updates-${game.id}`;
+      const movesChannelName = `moves-updates-${game.id}-round-${game.current_round}`;
+
+      const gameSub = supabase.channel(gameChannelName)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'games',
+          filter: `id=eq.${game.id}`
+        }, payload => {
+          setGame(payload.new as Game);
+        });
+
+      const playerSub = supabase.channel(playersChannelName)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${game.id}` },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              const newPlayer = payload.new as Player;
+              setPlayers((currentPlayers) => {
+                if (currentPlayers.some((p) => p.id === newPlayer.id)) {
+                  return currentPlayers; // Already exists, do nothing
+                }
+                return [...currentPlayers, newPlayer];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedPlayer = payload.new as Player;
+              setPlayers((currentPlayers) =>
+                currentPlayers.map((p) => (p.id === updatedPlayer.id ? updatedPlayer : p))
+              );
+            } else if (payload.eventType === 'DELETE') {
+              const oldPlayer = payload.old as { id: string }; // Only need id for delete
+              setPlayers((currentPlayers) => currentPlayers.filter((p) => p.id !== oldPlayer.id));
+            }
+          }
+        );
+
+      const riderSub = supabase.channel(ridersChannelName)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'riders',
+          filter: `game_id=eq.${game.id}`
+        }, async () => {
+          // Refetch all riders for this game
+          const { data: ridersData } = await supabase.from('riders').select('*').eq('game_id', game.id);
+          setRiders(ridersData || []);
+        });
+
+      const movesSub = supabase.channel(movesChannelName)
+        .on('postgres_changes', {
+          event: '*', // Listen to all events for moves to ensure updates
+          schema: 'public',
+          table: 'player_moves',
+          filter: `game_id=eq.${game.id},round=eq.${game.current_round}`
+        }, async () => {
+          // Refetch moves for the current round
+          const { data: movesData } = await supabase.from('player_moves').select('*').eq('game_id', game.id).eq('round', game.current_round);
+          setRoundMoves(movesData || []);
+        });
+
+      // Subscribe to channels
+      await gameSub.subscribe();
+      await playerSub.subscribe();
+      await riderSub.subscribe();
+      await movesSub.subscribe();
+
+      // Store channels for cleanup
+      channelsRef.current = { gameSub, playerSub, riderSub, movesSub };
+
+      // Fetch initial data after subscriptions are active
       const { data: playersData } = await supabase.from('players').select('*').eq('game_id', game.id);
       setPlayers(playersData || []);
       const { data: ridersData } = await supabase.from('riders').select('*').eq('game_id', game.id);
@@ -46,84 +123,17 @@ export function useGame() {
       const { data: movesData } = await supabase.from('player_moves').select('*').eq('game_id', game.id).eq('round', game.current_round);
       setRoundMoves(movesData || []);
     };
-    fetchInitialData();
 
-    // Create unique channel names to avoid conflicts
-    const gameChannelName = `game-updates-${game.id}`;
-    const playersChannelName = `players-updates-${game.id}`;
-    const ridersChannelName = `riders-updates-${game.id}`;
-    const movesChannelName = `moves-updates-${game.id}-round-${game.current_round}`;
-
-    const gameSub = supabase.channel(gameChannelName)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'games',
-        filter: `id=eq.${game.id}`
-      }, payload => {
-        setGame(payload.new as Game);
-      })
-      .subscribe();
-
-    const playerSub = supabase.channel(playersChannelName)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'players', filter: `game_id=eq.${game.id}` },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newPlayer = payload.new as Player;
-            setPlayers((currentPlayers) => {
-              if (currentPlayers.some((p) => p.id === newPlayer.id)) {
-                return currentPlayers; // Already exists, do nothing
-              }
-              return [...currentPlayers, newPlayer];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedPlayer = payload.new as Player;
-            setPlayers((currentPlayers) =>
-              currentPlayers.map((p) => (p.id === updatedPlayer.id ? updatedPlayer : p))
-            );
-          } else if (payload.eventType === 'DELETE') {
-            const oldPlayer = payload.old as { id: string }; // Only need id for delete
-            setPlayers((currentPlayers) => currentPlayers.filter((p) => p.id !== oldPlayer.id));
-          }
-        }
-      )
-      .subscribe();
-
-    const riderSub = supabase.channel(ridersChannelName)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'riders',
-        filter: `game_id=eq.${game.id}`
-      }, async () => {
-        // Refetch all riders for this game
-        const { data: ridersData } = await supabase.from('riders').select('*').eq('game_id', game.id);
-        setRiders(ridersData || []);
-      })
-      .subscribe();
-
-    const movesSub = supabase.channel(movesChannelName)
-      .on('postgres_changes', {
-        event: '*', // Listen to all events for moves to ensure updates
-        schema: 'public',
-        table: 'player_moves',
-        filter: `game_id=eq.${game.id},round=eq.${game.current_round}`
-      }, async () => {
-        // Refetch moves for the current round
-        if (game) { // Add a guard to ensure game is not null
-          const { data: movesData } = await supabase.from('player_moves').select('*').eq('game_id', game.id).eq('round', game.current_round);
-          setRoundMoves(movesData || []);
-        }
-      })
-      .subscribe();
+    setupSubscriptions();
 
     return () => {
-      supabase.removeChannel(gameSub);
-      supabase.removeChannel(playerSub);
-      supabase.removeChannel(riderSub);
-      supabase.removeChannel(movesSub);
+      if (channelsRef.current) {
+        supabase.removeChannel(channelsRef.current.gameSub);
+        supabase.removeChannel(channelsRef.current.playerSub);
+        supabase.removeChannel(channelsRef.current.riderSub);
+        supabase.removeChannel(channelsRef.current.movesSub);
+        channelsRef.current = null;
+      }
     };
 
   }, [game?.id, game?.current_round, game]);
@@ -234,6 +244,9 @@ export function useGame() {
       console.error('Error confirming moves:', error);
       return;
     }
+
+    // Update roundMoves locally to trigger UI update immediately
+    setRoundMoves(current => [...current, ...movesToInsert]);
 
     const riderUpdates = myRiders.map(async (rider) => {
       const playedCard = selectedMoves[rider.id];

@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 export type Rider = {
   id: string;
   player_id: string;
